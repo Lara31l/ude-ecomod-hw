@@ -1,0 +1,65 @@
+---
+lang: de-DE
+title: "Model for mouse population size"
+subtitle: |
+  | Ecological Modelling
+  | M.Sc. Aquatic Biology - WiSe 2022-2023
+  | University Duisburg-Essen
+author: Lara Lausch
+output:
+  pdf_document: default
+  toc: yes
+fontsize: 12pt
+urlcolor: black
+---
+---
+
+```{r}
+# Step 1. Specify parameters
+## d - the *fraction* of mice in yard eaten by cat / day --> 0-1
+d <- 0.7
+## b - the *number* of mice born per mouse / day --> N (0-infinity)
+b <- 3
+## m - the *number* of mice arriving in the yard per day --> N (0-infinity)
+m <- 4
+## Nt - the initial number of mice in the yard when we begin the survey
+Nt <- 42
+
+# Step 2. equation function
+mice <- function(Nt,d,b,m){
+  Nt1 <- (1+b)*(1-d)*Nt + m
+  return(Nt1)
+}
+
+# Step 3. Make sure the function works
+Nt1 <- mice(Nt,d,b,m)
+
+# Step 4. Create a new variable to hold future values of N
+N <- rep(NA,100)
+
+# Step 5. Create a for loop to iteratively calculate N
+N[1] <- Nt
+for(i in 2:100){
+  N[i] <- mice(Nt,d,b,m)
+  Nt <- N[i]
+}
+
+# Step 6. Plot N over time
+dat <- as.data.frame(N)
+dat$time <- as.numeric(rownames(dat))
+
+library(ggplot2)
+#create a plot
+ggplot2::ggplot(dat,aes(time,N)) + 
+  geom_point() +
+  labs (x = "Time [years]", 
+        y = "Population size N", 
+        title="Model for mouse population size") +
+  # name the x-, y- axis and give the diagram a title
+  theme (axis.title = element_text (size = 9)) + 
+  # change the size of the axis-title
+  theme (axis.text = element_text (size = 9))
+  # change the size of the axis-text
+```
+
+

@@ -1,0 +1,50 @@
+---
+lang: de-DE
+title: "Logistic growth dynamics"
+subtitle: |
+  | Ecological Modelling
+  | M.Sc. Aquatic Biology - WiSe 2022-2023
+  | University Duisburg-Essen
+author: Lara Lausch
+output:
+  pdf_document: default
+  toc: yes
+fontsize: 12pt
+urlcolor: black
+---
+---
+
+```{r}
+# Logistic growth model
+
+#  equation function 
+cont_log <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    dN <-  r * N * (1 - (N/K))
+    return(list(dN))
+  })
+}
+
+# define parameters, population size and time period
+## Population growth rate=r=2.7, carrying capacity=K=2500
+## population size=N=42
+## time period=10 years
+parameters <- c(r = 2.7,K = 2500)
+state      <- c(N = 42)
+times      <- seq(0, 10, by = 0.01)
+
+lgd <- deSolve::ode(y = state, times = times, func = cont_log, parms = parameters)
+lgd.2 <- as.data.frame(lgd)
+
+ggplot2::ggplot(lgd.2,aes(time,N)) + 
+  geom_line(linewidth=0.5) +
+  labs (x = "Time [years]", 
+        y = "Population size N", 
+        title="Model to show logistic growth dynamics") +
+  # name the x-, y- axis and give the diagram a title
+  theme (axis.title = element_text (size = 9))+
+  # change the size of the axis-title
+  theme (axis.text = element_text (size = 9))
+  # change the size of the axis-text
+```
+

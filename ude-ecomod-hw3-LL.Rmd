@@ -1,0 +1,277 @@
+---
+lang: de-DE
+title: "Reading guide 4 for Lehaye et al. 1994."
+subtitle: |
+  | Ecological Modelling
+  | M.Sc. Aquatic Biology - WiSe 2022-2023
+  | University Duisburg-Essen
+author: Lara Lausch
+output:
+  pdf_document: default
+  toc: yes
+fontsize: 12pt
+urlcolor: black
+---
+---
+# Question 1
+
+What is the overall goal of this analysis and study - what critical question are the researchers addressing that makes the study, data, and models useful?
+
+**Answer**:
+They used different models to predict the development of the owl population in South California e.g. decline/extinction in the next 10-40 years? (involved different assumptions and parameters). 
+They modelled a system to assisits the : 
+1. dynamics
+2. demographic characteristics that  most strongly influence the dynamics
+3. risk of decline under a set of alternative assumptions
+
+# Question 2
+
+Owls can fly, which in theory means in a landscape you can find them anywhere. Yet, the researchers apply metapopulation theory, which assumes the species occupies a patchy landscape. Why is owl habitat patchy and not continuous?
+
+**Answer**: Southern California populations are isolated from each other by non-forested habitat.
+
+# Question 3
+
+What is the estimated carrying capacity of the San Bernadino (SBM) and San Jacinto (SJM) mountain spotted owl population?
+
+**Answer**: : SBM=266, SJM=40
+
+\newpage
+
+# Question 4
+
+a) The researchers estimated a population growth rate r = 0.86 for the SBM population- please find where in the text this result is given.
+
+**Answer**: : A Leslie matrix analysis indicated that the SBM spotted owl population had an annual finite rate of increase of 0.86 (p. 779).
+
+b) The researchers used an initial abundance for their simulations of 70% of carrying capacity - given this, what is the N0 of the SBM population?
+
+**Answer**: : N0=0.7*266=186.2 with K=266
+
+c) Use this r value and the K values given in Figure 2 to develop a simulation of population dynamics for SBM spotted owls. Use your N0
+value above as the first Nt value. Plot the results of population size (N) over time. 
+
+```{r}
+## Step 1. Write values for the parameters in the model 
+## (and initial values of state variables)
+
+# K: carrying capacity
+K <- 266
+# r: population growth rate
+r <- 0.86
+# N0: initial population size 
+## (the initial number of owls when we begin the survey)
+N=N0 <- 186.2
+
+
+cont_log <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), {
+    dN <-  r * N * (1 - (N/K)) # used formula to calculate the change of N
+    return(list(dN))
+  })
+}
+
+parameters <- c(r = 0.86,K = 266)
+state      <- c(N = 186.2)
+times      <- seq(0, 20, by = 0.01)
+
+out <- deSolve::ode(y = state, 
+                    times = times, 
+                    func = cont_log, 
+                    parms = parameters)
+out.g <- as.data.frame(out)
+
+# loading packages 
+library(reshape2)
+library(ggplot2)
+
+# plot the result 
+ggplot2::ggplot(out.g,aes(time,N)) + 
+  geom_line() +
+  labs (x = "Time [years]", 
+        y = "Population size N", 
+        title="Population dynamics for SBM spotted owls")+
+  theme (axis.title = element_text (size = 9)) +
+  theme (axis.text = element_text (size = 9))
+```
+\newpage
+
+# Question 5
+
+The researchers estimated population growth rate R using data collected from the SBM population, fit to a two-stage Leslie projection matrix model. This is a model for stage-structured populations, as is the case for the spotted owl. [...] Add a hypothetical 3rd stage to the model. In this model, continue to use the same values as above for F1, F2, P1→2, and P2→2. 
+Set P3→2= 0 (because the owls can’t go back a stage) and P1→3= 0 (because the owls can’t skip a stage). 
+Set P2→3= 0.1, P3→3= 0.1, and F3= 0.304.
+
+```{r}
+# Step 1. Build the transition matrix A with the following values
+F1 <- 0.304
+F2 <- 0.304
+F3 <- 0.304
+P.12 <- 0.344
+P.22 <- 0.767
+P.32 <- 0
+P.13 <- 0
+P.23 <- 0.1
+P.33 <- 0.1
+
+Nt <- 0.7*K
+
+B <- matrix(c(
+    F1, F2, F3,
+    P.12, P.22, P.32, P.13, P.23, P.33)
+  ,nrow=3,ncol=3,byrow=T)
+
+B
+```
+```{r}
+# Step 2. Build the matrix Nt (initial abundance matrix)
+Nt <- c((Nt/2),(Nt/2), (Nt/2))
+
+# Step 3. Matrix multiplication for Nt+1
+Year1B <- B %*% Nt  # matrix multiplication!
+Year1B
+```
+```{r}
+# Step 4. Create a new variable to hold future values of N
+N <- array(NA, dim=c(20,3), dimnames=list(NULL,c("stage1","stage2","stage3"))) 
+# change the col-names
+
+# Step 5. Create a for loop to iteratively calculate N
+N[1,] <- Nt
+for(i in 2:20){
+  N[i,] <- B %*% N[i-1,]
+}
+```
+
+```{r}
+# Create a data frame with the three stages 
+## and time to check the results before plotting
+dat <- as.data.frame(N)
+dat$time <- as.numeric(rownames(dat))
+
+dat
+```
+```{r}
+#create a new data frame to plot the results 
+df <- data.frame(time=c(1:20),
+                 'stage 1'=dat$stage1,
+                 'stage 2'=dat$stage2,
+                 'stage 3'=dat$stage3)
+
+#melt data frame into long format
+df <- melt(df ,  id.vars = 'time', variable.name = 'stages')
+
+#create line plot for each column in data frame
+ggplot(df, aes(x=time, 
+               y=value,
+               color=stages,
+               linetyp=stages,
+               group=stages)) +
+  geom_point(size = 1) +
+  geom_line(linewidth = 0.5) +
+  labs (x = "Time [years]", 
+        y = "Population size N", 
+        title="Population growth of the SBM owl population") +
+  # name the x-, y- axis and give the diagram a title
+  ylim(0,120) + # scale y axis
+  theme (axis.title = element_text (size = 9)) + 
+  # change the size of the axis-title
+  theme (axis.text = element_text (size = 9))+ 
+  # change the size of the axis-text
+  theme (legend.position = "right", legend.text = element_text(size=10))+
+  scale_color_manual(values=c("darkgreen", "firebrick", "steelblue"), 
+                     # change the colours
+                     name="Stages", # change name of the legend
+                     labels=c("stage 1", "stage 2", "stage 3"))
+```
+\newpage
+
+# Question 6
+
+Can you explain why increased correlation in sensitivity to environmental variation among spotted owl populations can place the entire metapopulation at increased risk of extinction?
+
+**Answer**: : "If the fluctuations in the environment were at least partially independent, so would be fluctuations in population growth rates. Thus, it would be less likely that all populations would go extinct at the same time, compared to a case where the fluctuations were dependent, i.e. synchronous. Conversely, if the fluc- tuations were partially synchronous, then models based on an assumption of independent population dynamics among patches would underestimate extinction risk." (p. 778)
+
+# Question 7
+
+Can you explain why the formula on page 778 represents a metapopulation model? Please include a definition for metapopulation, with a citation.
+
+**Answer**: : Metapopulation= "a group of subpopulations that interact with each other through the exchange of genes (gene flow). The concept of metapopulation was introduced to describe a subdivided, mosaic-like population whose population dynamics occur at 2 levels: within a single subpopulation and between different subpopulations." (https://www.spektrum.de/lexikon/biologie/metapopulation/42487) 
+==> "population of populations" (Hanski, 1991)
+
+n= number of populations 
+
+N(t)= number of individuals in population i at time t
+
+Ri(t)=  growth rate of population i at time t
+
+mi= proportion of individuals emigrating (dispersing) from population i to population j =interaction between the subpopulations
+
+"At each time step, the growth rates, R,(t), were selected from a multivariate lognormal distribution defined by the mean and standard deviation of the growth rate of each population and by the matrix of correlations among growth rates. These random variables were used to represent environmental stochasticity." (p. 778)
+
+\newpage
+
+# Question 8
+
+The authors believe there is evidence that (i) population locations are correlated in the amount of total annual rainfall and (ii) that this environmental property impacts fecundity. Please explain their analysis to justify this.
+
+**Answer**: : 
+*(i) population locations are correlated in the amount of total annual rainfall*: 
+Dynamics of the SBM spotted owl population could have been affected by rainfall.
+-> Yes? -> any spatial correlation among different locations in terms of their rainfall patterns would also be reflected as a correlation among the population dynamics at those locations. ->  repeated the analysis with three different assumptions:
+
+1. NO correlation among growth rates of different populations (i.e. their dynamics are independent)
+2. & 3. two different levels of correlation (wide range of correlations, from none to 'high')
+
+Assumption: The observed correlations among rainfall patterns represented an upper limit to the correlation among population dynamics. 
+Reason: The correlation in the growth rates among populations would be a function of the product of two correlations, i.e. the correlation in the underlying environmental factors (such as rainfall) among populations and the correlation between the environmental factor(s) and population growth rates. 
+
+*(ii) that this environmental property impacts fecundity:* 
+
+Fecundity= dividing the number of fledged young by the number of pairs checked for fledging
+
+Assumption: Equal sex ratio in the offspring
+-> divided the average number of fledged young per pair by two to estimate the number of female offspring per paired female in the population. The finite annual rate of population increase was estimated using a two-stage Leslie projection matrix.
+
+*Two Hypothesis:* 
+
+1. Deterministic decline
+
+- density-independent model using the observed growth rate
+- metapopulation would be expected to decline until it went extinct
+
+2. Environmental fluctuations
+
+- precipitation affect the spotted population extrem e.g. high precipitation -> high growth rate 
+- three scenarios: 
+  i.   dispersal and correlation= 0
+  ii.  high dispersal and high correlation
+  iii. uncorrelated fluctuations 
+  
+"If increased rainfall increases fecundity or survival, it would validate the use of the environmental fluctuations hypothesis for evaluating this metapopulation. However, if increased rainfall has little or no effect on fecundity, the deterministic decline hypothesis would be the correct model to use when modelling the southern California spotted owl metapopulation."
+
+\newpage
+
+# Question 9
+
+Please look carefully at Figure 9 - what is on the x- and y-axis? How do they support this statement: a correlation in response of populations to rainfall makes spotted owls more likely to become extinct.
+
+**Answer**: : x-axis= risk of decline [%] (100%= total extinction of the metapopulation), y-axis= probability of the risk (0-1)
+
+Assumption: high dispersal 
+
+Three scenarios: i. none correlation ii. high correlation iii. low correlation (Environmental fluctuation hypothesis )
+
+Precipitation's effect on primary productivity and thus prey densities could be an important determinant of spotted owl population growth rates (p. 782). 
+
+Other paper about precipitation effecting populations: Extreme precipitation reduces reproductive output of an endangered raptor (Fisher et al., 2015)
+
+# Question 10
+
+Compare Figure 9 to Figure 8 - is metapopulation structure important to understand Spotted owl extinction risk?
+
+**Answer**: : Yes. 
+
+Diagram 8 shows different results than diagram 9: The risk of decline was not sensitive to the degree of dispersal under the environmental fluctuation hypothesis (Fig. 8). We assessed the effect of correlated growth rates among populations (increased correlation -> increase risk of decline). This effect was quite large under the environmental fluctuations hypothesis (Fig. 9). 
+
+
